@@ -5,7 +5,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const view = $('#view');
 const KEY = 'gewu.v1';
-let S; try { S = Object.assign({ theme: 'dark', color: 'cat', temp: 298, quiz: {}, recite: null, hist: [], ar: 'book' }, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch { S = { theme: 'dark', color: 'cat', temp: 298, quiz: {}, recite: null, hist: [], ar: 'book' }; }
+let S; try { S = Object.assign({ theme: 'dark', color: 'cat', temp: 298, quiz: {}, recite: null, hist: [], ar: 'book', fit: true }, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch { S = { theme: 'dark', color: 'cat', temp: 298, quiz: {}, recite: null, hist: [], ar: 'book', fit: true }; }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
 let toastT; const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); };
 
@@ -50,8 +50,8 @@ function renderTable() {
   <div class="bar"><div class="seg" id="cm">${seg.map(([k, n]) => `<button data-k="${k}" class="${cm === k ? 'on' : ''}">${n}</button>`).join('')}</div>
   <div class="search"><input id="q" placeholder="搜索：铁 / Fe / 26 / tie" value="${esc(query)}"></div></div>
   ${cm === 'phase' ? `<div class="temp"><span>温度</span><input type="range" id="T" min="0" max="6000" step="1" value="${S.temp}"><b id="Tv"></b><button class="seg" style="padding:5px 9px;border-radius:9px;font-size:12px" id="room">室温</button></div>` : ''}
-  <div class="mobile-hint">左右滑动查看完整周期表，点元素看详情</div>
-  <div class="scroller"><div class="pt" id="pt"></div></div>
+  <div class="table-tools"><button type="button" class="fit-btn" id="fitBtn" aria-pressed="${S.fit ? 'true' : 'false'}">${S.fit ? '适应宽度' : '横向滚动'}</button><span class="mobile-hint">${S.fit ? '整表缩入屏幕，点元素看详情' : '左右滑动查看完整周期表，点元素看详情'}</span></div>
+  <div class="scroller${S.fit ? ' fit' : ''}" id="scroller"><div class="pt" id="pt"></div></div>
   <div id="legend"></div>
   <div class="mnemo"><h3>前 20 号元素口诀（点字查看）</h3><p id="mn"></p></div>`;
   const pt = $('#pt');
@@ -71,6 +71,25 @@ function renderTable() {
     $('#Tv').textContent = `${S.temp} K · ${(S.temp - 273.15).toFixed(0)} ℃`;
   }
   paint(); preview();
+  const fb = $('#fitBtn');
+  if (fb) fb.onclick = () => { S.fit = !S.fit; save(); renderTable(); };
+  applyFit();
+}
+function applyFit() {
+  const sc = $('#scroller') || $('.scroller'), pt = $('#pt');
+  if (!sc || !pt) return;
+  pt.style.transform = '';
+  sc.style.height = '';
+  const mobile = window.matchMedia('(max-width:760px)').matches;
+  if (!mobile || !S.fit) { sc.classList.remove('fit'); return; }
+  sc.classList.add('fit');
+  const nat = pt.scrollWidth;
+  const w = sc.clientWidth;
+  if (!nat || !w) return;
+  const scale = Math.min(1, w / nat);
+  pt.style.transformOrigin = 'top left';
+  pt.style.transform = 'scale(' + scale + ')';
+  sc.style.height = Math.ceil(pt.scrollHeight * scale) + 'px';
 }
 function wave() {
   if (Motion.reduced) return;
@@ -167,6 +186,7 @@ function openEl(n) {
     ${f('电子排布式', `<span class="mono conf">${conf(e.cf)}</span>`, true)}
     ${f('简写', `<span class="mono conf">${conf(e.cs)}</span>`, true)}
   </div>
+  ${e.u ? `<div class="secT">主要用途 / 常见存在</div><p class="usage">${esc(e.u)}</p>` : ''}
   <div class="secT">原子结构示意图</div><div class="atom">${atomSVG(e)}</div>
   <div class="secT">电子层模型</div><div class="bohr" style="--c:${c}">${bohrSVG(e)}</div>
   <div class="facts">
@@ -351,6 +371,7 @@ function render() {
 }
 Motion.pills([{ sel: '#nav' }, { sel: '#cm', keep: true }, { sel: '#arm', keep: true }]);
 window.addEventListener('hashchange', () => { closeEl(); render(); window.scrollTo(0, 0); });
+window.addEventListener('resize', () => { if ($('#pt')) applyFit(); });
 $('#theme').onclick = () => { S.theme = S.theme === 'light' ? 'dark' : 'light'; save(); document.documentElement.dataset.theme = S.theme === 'light' ? 'light' : ''; if (S.theme !== 'light') delete document.documentElement.dataset.theme; document.querySelector('meta[name=theme-color]').content = S.theme === 'light' ? '#f4f6f8' : '#0e1318'; };
 view.innerHTML = '<div style="padding:120px 0;text-align:center;color:var(--ink3)">载入元素数据…</div>';
 fetch('data/elements.json').then(r => r.json()).then(d => {
