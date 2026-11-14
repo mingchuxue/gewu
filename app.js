@@ -61,7 +61,7 @@ function renderTable() {
   pt.innerHTML = h;
   $('#mn').innerHTML = E.slice(0, 20).map((e, i) => `<span data-n="${e.n}">${esc(e.zh)}</span>${i % 5 === 4 ? (i === 19 ? '' : '，') : ''}`).join('').replace(/，$/, '') + '。';
   $$('#mn span').forEach(s => s.onclick = () => openEl(+s.dataset.n));
-  $$('#cm button').forEach(b => b.onclick = () => { S.color = b.dataset.k; save(); filterCat = null; renderTable(); });
+  $$('#cm button').forEach(b => b.onclick = () => { S.color = b.dataset.k; save(); filterCat = null; const sc = $('.scroller') ? $('.scroller').scrollLeft : 0; renderTable(); if ($('.scroller')) $('.scroller').scrollLeft = sc; wave(); });
   const q = $('#q'); q.oninput = () => { query = q.value.trim(); paint(); };
   pt.addEventListener('click', e => { const b = e.target.closest('.el[data-n]'); if (b) openEl(+b.dataset.n); });
   pt.addEventListener('mouseover', e => { const b = e.target.closest('.el[data-n]'); if (b && +b.dataset.n !== hoverN) { hoverN = +b.dataset.n; preview(); } });
@@ -71,6 +71,14 @@ function renderTable() {
     $('#Tv').textContent = `${S.temp} K · ${(S.temp - 273.15).toFixed(0)} ℃`;
   }
   paint(); preview();
+}
+function wave() {
+  if (Motion.reduced) return;
+  for (const b of $$('#pt .el')) {
+    const x = parseInt(b.style.gridColumn) || 1, y = parseInt(b.style.gridRow) || 1;
+    b.style.setProperty('--wd', (x + y) * 14 + 'ms'); b.classList.remove('wv'); void b.offsetWidth; b.classList.add('wv');
+  }
+  setTimeout(() => $$('#pt .el.wv').forEach(b => b.classList.remove('wv')), 900);
 }
 function matches(e) {
   if (!query) return true;
@@ -167,6 +175,8 @@ function openEl(n) {
     ${f('密度', dens)}${f('电子亲和能', e.ea == null ? '—' : fmt(e.ea) + ' kJ/mol')}
     ${e.by ? f('发现', esc(e.by), true) : ''}
   </div>`;
+  const wasOpen = $('#drawer').classList.contains('open');
+  if (wasOpen) Motion.enter($('#drawerIn'), 'gw-swap'); else Motion.stagger($('#drawerIn'), '.fact', 22, 16);
   $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden', 'false'); $('#scrim').classList.add('on');
   $('#drawer').scrollTop = 0;
   $('#dPrev').onclick = () => openEl(n - 1); $('#dNext').onclick = () => openEl(n + 1); $('#dClose').onclick = closeEl;
@@ -221,12 +231,13 @@ function renderCalc() {
     const out = $('#out'); if (!v) { out.innerHTML = ''; return; }
     let t; try { t = parseFormula(v); } catch (err) { out.innerHTML = `<div class="err">${esc(err.message)}</div>`; return; }
     const rows = Object.entries(t).map(([s, k]) => ({ s, k, ar: arOf(s, S.ar) })); rows.forEach(r => r.sub = r.k * r.ar);
-    const M = rows.reduce((a, r) => a + r.sub, 0);
+    const M = rows.reduce((a, r) => a + r.sub, 0); const pm = $('.res .big .m') ? parseFloat($('.res .big .m').textContent) : null;
     const r3 = x => +x.toFixed(S.ar === 'book' ? 2 : 3);
     out.innerHTML = `<div class="res"><div class="big"><span class="f">${pretty(v.replace(/[·•*]/g, '.'))}</span><span class="m">${r3(M)}</span><span style="color:var(--ink3);font-size:13px">M = ${r3(M)} g/mol</span></div>
     <table><thead><tr><th>元素</th><th>个数</th><th>A<sub>r</sub></th><th>小计</th><th style="width:38%">质量分数</th></tr></thead><tbody>
     ${rows.map(r => { const e = BY[SYM[r.s]]; const w = r.sub / M * 100; return `<tr><td><b>${r.s}</b> <span style="color:var(--ink3)">${esc(e.zh)}</span></td><td class="mono">${r.k}</td><td class="mono">${r.ar}</td><td class="mono">${r3(r.sub)}</td><td><div style="display:flex;align-items:center;gap:8px"><div class="bar2" style="flex:1;--c:var(${CAT[catOf(e)].v})"><i style="width:${w}%"></i></div><span class="mono" style="min-width:52px;text-align:right">${w.toFixed(2)}%</span></div></td></tr>`; }).join('')}
     </tbody></table></div>`;
+    const mEl = $('.res .big .m'); if (pm != null && !isNaN(pm) && pm !== r3(M)) { mEl.textContent = r3(pm); mEl._moV = pm; Motion.count(mEl, M, { fmt: v => String(r3(v)), dur: 380 }); } else if (pm == null) Motion.enter($('.res', out));
     if (store) { S.hist = [v, ...S.hist.filter(x => x !== v)].slice(0, 10); save(); }
   };
   let deb; f.oninput = () => { clearTimeout(deb); deb = setTimeout(() => run(false), 150); };
@@ -250,7 +261,7 @@ function renderLearn() {
       <button class="lc" data-m="qall"><div class="ic">Og</div><h3>全表挑战</h3><p>118 种元素随机出题，含周期与族的定位题。</p><small>${qb('qall')}</small></button>
     </div>
     <div class="mnemo"><h3>口诀</h3><p>氢氦锂铍硼，碳氮氧氟氖，<br>钠镁铝硅磷，硫氯氩钾钙。</p></div></div>`;
-    $$('.lc').forEach(b => b.onclick = () => { startLearn(b.dataset.m); });
+    $$('.lc').forEach(b => b.onclick = () => { startLearn(b.dataset.m); Motion.enter(view); });
     return;
   }
   if (L.m === 'recite') return renderRecite();
@@ -279,7 +290,7 @@ function renderRecite() {
       if (!L.t0) L.t0 = Date.now();
       L.i++;
       if (L.i >= 20) { L.done = true; L.time = Date.now() - L.t0; if (!S.recite || L.time < S.recite) S.recite = L.time; save(); }
-      renderRecite();
+      renderRecite(); const got = $$('.rc')[L.i - 1]; if (got && !L.done) Motion.pulse(got, 'gw-got'); else if (L.done) Motion.enter($('.qbox'), 'mo-pop');
     } else if (final) { ri.classList.remove('bad'); void ri.offsetWidth; ri.classList.add('bad'); ri.select(); }
   };
   ri.oninput = () => { if (!L.t0 && ri.value) { L.t0 = Date.now(); } check(false); };
@@ -319,11 +330,12 @@ function renderQuiz() {
   $$('.opt').forEach(b => b.onclick = () => {
     if (L.ans) return; L.ans = true;
     const ok = +b.dataset.n === e.n; if (ok) L.ok++;
-    $$('.opt').forEach(x => { x.disabled = true; if (+x.dataset.n === e.n) x.classList.add('ok'); else if (x === b) x.classList.add('bad'); });
+    $$('.opt').forEach(x => { x.disabled = true; if (+x.dataset.n === e.n) { x.classList.add('ok'); Motion.pulse(x); } else if (x === b) { x.classList.add('bad'); Motion.pulse(x, 'mo-shake'); } });
+    Motion.enter($('#exp'));
     $('#exp').innerHTML = `${esc(e.zh)}（${e.s}），${e.n} 号，第 ${e.p} 周期 ${groupName(e).replace(/^第 \d+ 纵列 · /, '')}，电子层 ${e.sh.join('、')}`;
     $('#nx').hidden = false; $('#nx').focus();
   });
-  $('#nx').onclick = () => { L.i++; L.ans = false; renderQuiz(); };
+  $('#nx').onclick = () => { L.i++; L.ans = false; renderQuiz(); if (L.i < 10) { Motion.enter($('.qbox')); Motion.stagger($('.opts'), '.opt', 40); } else Motion.enter($('.qbox'), 'mo-pop'); };
 }
 
 /* ---------- router ---------- */
@@ -334,7 +346,10 @@ function render() {
   clearInterval(clockT);
   if (r !== 'learn') L = null;
   ({ table: renderTable, calc: renderCalc, learn: renderLearn }[r] || renderTable)();
+  Motion.enter(view);
+  if (r === 'table') wave(); else Motion.stagger(view, '.lc, .chips .chip', 26, 18);
 }
+Motion.pills([{ sel: '#nav' }, { sel: '#cm', keep: true }, { sel: '#arm', keep: true }]);
 window.addEventListener('hashchange', () => { closeEl(); render(); window.scrollTo(0, 0); });
 $('#theme').onclick = () => { S.theme = S.theme === 'light' ? 'dark' : 'light'; save(); document.documentElement.dataset.theme = S.theme === 'light' ? 'light' : ''; if (S.theme !== 'light') delete document.documentElement.dataset.theme; document.querySelector('meta[name=theme-color]').content = S.theme === 'light' ? '#f4f6f8' : '#0e1318'; };
 view.innerHTML = '<div style="padding:120px 0;text-align:center;color:var(--ink3)">载入元素数据…</div>';

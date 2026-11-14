@@ -170,3 +170,46 @@ main{max-width:1260px;margin:0 auto;padding:20px 18px 70px}
   .temp b{min-width:0}
   .qbox .qa{font-size:38px}
 }
+
+/* —— 切换与反馈动效 —— */
+#nav>.mo-ind{background:var(--card2);box-shadow:inset 0 0 0 1px var(--line);border-radius:10px}
+#nav.mo-g a.on{background:transparent;box-shadow:none}
+.nav a{transition:color .25s}
+#cm>.mo-ind,#arm>.mo-ind{background:var(--card2);box-shadow:0 0 0 1px var(--line);border-radius:9px}
+#cm.mo-g button.on,#arm.mo-g button.on{background:transparent;box-shadow:none}
+.seg button{transition:color .2s,transform .15s}
+.seg button:active,.btn:active,.chip:active,.lc:active,.opt:active:not(:disabled),.ib:active{transform:scale(.95)}
+.btn,.chip,.ib{transition:transform .15s var(--mo-ease),background-color .2s,border-color .2s,color .2s}
+.ib svg{transition:transform .45s var(--mo-spring)}
+.ib:active svg{transform:rotate(-30deg)}
+.el{transition:transform .22s var(--mo-spring),box-shadow .22s,opacity .3s,border-color .3s}
+.el::before{transition:opacity .35s,background-color .35s}
+.el::after{transition:background-color .35s}
+.el:hover,.el.sel{transform:scale(1.14)}
+.el.sel{animation:gw-sel 1.6s ease-in-out infinite}
+@keyframes gw-sel{50%{box-shadow:0 8px 24px rgba(0,0,0,.35),0 0 0 4px var(--c)}}
+.el.wv{animation:gw-wave .42s var(--mo-ease) backwards;animation-delay:var(--wd,0ms)}
+@keyframes gw-wave{from{opacity:0;transform:scale(.82)}}
+.el .ph:not([hidden]){animation:mo-fade-in .25s}
+.pv-tile,.pv-info{animation:mo-fade-in .2s}
+.legend button{transition:background-color .2s,transform .15s}
+.legend button:active{transform:scale(.95)}
+.legend button i{transition:transform .25s var(--mo-spring)}
+.legend button.on i{transform:scale(1.3)}
+.drawer{transition:transform .34s cubic-bezier(.22,.9,.24,1)}
+.scrim{transition:opacity .3s}
+.gw-swap{animation:gw-swap .26s var(--mo-ease)}
+@keyframes gw-swap{from{opacity:.2;transform:translateY(6px)}}
+.res{transition:border-color .2s}
+.bar2 i{transition:width .45s var(--mo-ease)}
+.res .big .m{display:inline-block}
+.opt{transition:transform .15s var(--mo-ease),border-color .2s,background-color .25s}
+.rc{transition:background-color .25s,border-color .25s,box-shadow .25s}
+.gw-got{animation:gw-got .4s var(--mo-spring)}
+@keyframes gw-got{0%{transform:scale(.7);opacity:.3}100%{transform:none}}
+.rc.cur{animation:gw-cur 1.4s ease-in-out infinite}
+@keyframes gw-cur{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--acc) 12%,transparent)}}
+.mo-pop{animation:mo-pop-in .4s var(--mo-spring)}
+.toast{transition:opacity .22s,transform .3s var(--mo-spring)}
+.lc{transition:transform .22s var(--mo-ease),border-color .2s,box-shadow .22s}
+.res{overflow-x:auto}
