@@ -5,7 +5,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const view = $('#view');
 const KEY = 'gewu.v1';
-let S; try { S = Object.assign({ theme: 'dark', color: 'cat', temp: 298, quiz: {}, recite: null, hist: [], ar: 'book', fit: true }, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch { S = { theme: 'dark', color: 'cat', temp: 298, quiz: {}, recite: null, hist: [], ar: 'book', fit: true }; }
+let S; try { S = Object.assign({ theme: 'dark', color: 'cat', temp: 298, quiz: {}, recite: null, hist: [], ar: 'book', fit: true, cmp: [] }, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch { S = { theme: 'dark', color: 'cat', temp: 298, quiz: {}, recite: null, hist: [], ar: 'book', fit: true, cmp: [] }; }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
 let toastT; const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); };
 
@@ -194,12 +194,20 @@ function openEl(n) {
     ${f('熔点', temp(e.mp), true)}${f('沸点', temp(e.bp), true)}
     ${f('密度', dens)}${f('电子亲和能', e.ea == null ? '—' : fmt(e.ea) + ' kJ/mol')}
     ${e.by ? f('发现', esc(e.by), true) : ''}
-  </div>`;
+  </div>
+  <div style="margin:8px 0 4px"><button class="btn" id="addCmp">加入对比</button></div>`;
   const wasOpen = $('#drawer').classList.contains('open');
   if (wasOpen) Motion.enter($('#drawerIn'), 'gw-swap'); else Motion.stagger($('#drawerIn'), '.fact', 22, 16);
   $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden', 'false'); $('#scrim').classList.add('on');
   $('#drawer').scrollTop = 0;
   $('#dPrev').onclick = () => openEl(n - 1); $('#dNext').onclick = () => openEl(n + 1); $('#dClose').onclick = closeEl;
+  const ac = $('#addCmp');
+  if (ac) ac.onclick = () => {
+    S.cmp = S.cmp || [];
+    if (S.cmp.includes(n)) { toast('已经在对比里了'); return; }
+    if (S.cmp.length >= 4) S.cmp.shift();
+    S.cmp.push(n); save(); toast('已加入对比，共 '+S.cmp.length+' 种');
+  };
   if ($('#pt')) { paint(); hoverN = null; preview(); }
 }
 function closeEl() { selN = null; $('#drawer').classList.remove('open'); $('#drawer').setAttribute('aria-hidden', 'true'); $('#scrim').classList.remove('on'); if ($('#pt')) paint(); }
@@ -358,6 +366,40 @@ function renderQuiz() {
   $('#nx').onclick = () => { L.i++; L.ans = false; renderQuiz(); if (L.i < 10) { Motion.enter($('.qbox')); Motion.stagger($('.opts'), '.opt', 40); } else Motion.enter($('.qbox'), 'mo-pop'); };
 }
 
+
+function renderCmp() {
+  S.cmp = (S.cmp || []).filter(n => BY[n]);
+  const cols = S.cmp.map(n => BY[n]);
+  const rows = [
+    ['类别', e => CAT[catOf(e)].n],
+    ['周期 / 族', e => `第 ${e.p} 周期 · ${groupName(e).replace(/^第 \d+ 纵列 · /, '')}`],
+    ['相对原子质量', e => massStr(e) + (BOOK[e.s]!=null ? `（课本 ${BOOK[e.s]}）` : '')],
+    ['电子排布', e => e.cs || e.cf || '—'],
+    ['常见化合价', e => VAL[e.s] || '—'],
+    ['电负性', e => e.eneg == null ? '—' : fmt(e.eneg)],
+    ['第一电离能', e => e.ie == null ? '—' : fmt(e.ie)+' kJ/mol'],
+    ['熔点', e => e.mp == null ? '—' : `${fmt(e.mp)} K（${(e.mp-273.15).toFixed(0)} ℃）`],
+    ['沸点', e => e.bp == null ? '—' : `${fmt(e.bp)} K（${(e.bp-273.15).toFixed(0)} ℃）`],
+    ['密度', e => e.den == null ? '—' : `${fmt(e.den)} ${e.du==='g/L'?'g/L':'g/cm³'}`],
+    ['室温物态', e => { const p=phaseAt(e,298); return p?PH[p]+'态':'—'; }],
+    ['发现', e => e.by || '—'],
+    ['主要用途', e => e.u || '—'],
+  ];
+  view.innerHTML = `<div class="learn">
+    <div class="secT" style="margin-top:0">元素对比</div>
+    <p style="color:var(--ink2);margin:0 0 14px">在周期表详情里点「加入对比」，最多四种。也可以在下面搜索添加。</p>
+    <div class="bar"><div class="search" style="margin:0"><input id="cq" placeholder="添加：铁 / Fe / 26"></div>
+      <button class="btn" id="clrCmp" ${cols.length?'':'disabled'}>清空</button></div>
+    <div class="cmp-picks" id="picks">${cols.map(e=>`<button class="chip on" data-n="${e.n}">${esc(e.zh)} ${e.s} ×</button>`).join('')||'<span style="color:var(--ink3)">还没有加入元素</span>'}</div>
+    ${cols.length>=2?`<div class="cmp-wrap"><table class="cmp"><thead><tr><th></th>${cols.map(e=>`<th><button class="elmini" data-n="${e.n}" style="--c:var(${CAT[catOf(e)].v})"><b>${e.s}</b><span>${esc(e.zh)}</span><i>${e.n}</i></button></th>`).join('')}</tr></thead><tbody>${rows.map(([k,fn])=>`<tr><th>${k}</th>${cols.map(e=>`<td>${fn(e)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`: (cols.length===1?'<p style="color:var(--ink3)">再加入一种就可以对照了。</p>':'')}
+  </div>`;
+  const add = n => { if (!BY[n] || S.cmp.includes(n)) return; if (S.cmp.length>=4) S.cmp.shift(); S.cmp.push(n); save(); renderCmp(); };
+  $$('#picks [data-n]').forEach(b => b.onclick = () => { S.cmp = S.cmp.filter(n => n !== +b.dataset.n); save(); renderCmp(); });
+  $$('.elmini').forEach(b => b.onclick = () => openEl(+b.dataset.n));
+  if ($('#clrCmp')) $('#clrCmp').onclick = () => { S.cmp = []; save(); renderCmp(); };
+  const q = $('#cq');
+  q.onkeydown = e => { if (e.key!=='Enter') return; const s=q.value.trim(); const e0=E.find(x=>x.zh===s||x.s.toLowerCase()===s.toLowerCase()||String(x.n)===s); if (e0) { add(e0.n); q.value=''; } else toast('没有找到这个元素'); };
+}
 /* ---------- router ---------- */
 const route = () => (location.hash.replace(/^#\/?/, '') || 'table');
 function render() {
@@ -365,7 +407,7 @@ function render() {
   $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.r === r));
   clearInterval(clockT);
   if (r !== 'learn') L = null;
-  ({ table: renderTable, calc: renderCalc, learn: renderLearn }[r] || renderTable)();
+  ({ table: renderTable, calc: renderCalc, learn: renderLearn, cmp: renderCmp }[r] || renderTable)();
   Motion.enter(view);
   if (r === 'table') wave(); else Motion.stagger(view, '.lc, .chips .chip', 26, 18);
 }

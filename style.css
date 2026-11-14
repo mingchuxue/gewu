@@ -220,3 +220,17 @@ main{max-width:1260px;margin:0 auto;padding:20px 18px 70px}
 .toast{transition:opacity .22s,transform .3s var(--mo-spring)}
 .lc{transition:transform .22s var(--mo-ease),border-color .2s,box-shadow .22s}
 .res{overflow-x:auto}
+
+.cmp-picks{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px}
+.cmp-picks .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font:inherit;color:var(--ink2)}
+.cmp-wrap{overflow-x:auto}
+table.cmp{width:100%;border-collapse:collapse;min-width:520px;font-size:13px}
+table.cmp th,table.cmp td{border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top;line-height:1.65}
+table.cmp thead th{border-bottom:none}
+table.cmp tbody th{color:var(--ink3);font-weight:500;width:7.5em;white-space:nowrap}
+.elmini{display:flex;flex-direction:column;align-items:flex-start;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 10px;min-width:72px;position:relative;--c:var(--unk)}
+.elmini::before{content:"";position:absolute;inset:0;background:var(--c);opacity:.16;border-radius:10px;pointer-events:none}
+.elmini b{font-size:20px}.elmini span{font-size:13px}.elmini i{font-style:normal;font-size:11px;color:var(--ink3)}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:7px 14px;font:inherit}
+.btn:disabled{opacity:.45}
+@media (max-width:760px){.nav a{font-size:13px;padding:7px 2px}}
