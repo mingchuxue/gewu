@@ -234,3 +234,7 @@ table.cmp tbody th{color:var(--ink3);font-weight:500;width:7.5em;white-space:now
 .btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:7px 14px;font:inherit}
 .btn:disabled{opacity:.45}
 @media (max-width:760px){.nav a{font-size:13px;padding:7px 2px}}
+
+.eqline{font-size:22px;line-height:1.85;letter-spacing:0;font-family:var(--mono)}
+.eqline sub{font-size:.72em}
+@media (max-width:760px){.nav a{font-size:12px;padding:7px 1px}}

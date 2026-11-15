@@ -400,6 +400,121 @@ function renderCmp() {
   const q = $('#cq');
   q.onkeydown = e => { if (e.key!=='Enter') return; const s=q.value.trim(); const e0=E.find(x=>x.zh===s||x.s.toLowerCase()===s.toLowerCase()||String(x.n)===s); if (e0) { add(e0.n); q.value=''; } else toast('没有找到这个元素'); };
 }
+
+function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { const t = a % b; a = b; b = t; } return a || 1; }
+function fr(n, d = 1) { if (!d) throw new Error('无法配平'); if (d < 0) { n = -n; d = -d; } const g = gcd(n, d); return [n / g, d / g]; }
+const fadd = (a, b) => fr(a[0] * b[1] + b[0] * a[1], a[1] * b[1]);
+const fsub = (a, b) => fr(a[0] * b[1] - b[0] * a[1], a[1] * b[1]);
+const fmul = (a, b) => fr(a[0] * b[0], a[1] * b[1]);
+const fdiv = (a, b) => { if (!b[0]) throw new Error('无法配平'); return fr(a[0] * b[1], a[1] * b[0]); };
+function balanceEq(str) {
+  let s = str.replace(/\s+/g, '').replace(/[＝═=]/g, '=').replace(/[→➞⇒⟶]/g, '=');
+  if ((s.match(/=/g) || []).length !== 1) throw new Error('请用一个等号或箭头把反应物和生成物分开');
+  const [L, R] = s.split('=');
+  if (!L || !R) throw new Error('等号两侧都不能空着');
+  const split = side => side.split('+').map(tok => {
+    if (!tok) throw new Error('加号位置不对');
+    tok = tok.replace(/[\(（](s|l|g|aq|solid|liquid|gas|sol|liq)[\)）]$/i, '');
+    tok = tok.replace(/[⁺⁻+\-]+$/, '');
+    tok = tok.replace(/^\d+/, '');
+    if (!tok) throw new Error('化学式不完整');
+    return tok;
+  });
+  const left = split(L), right = split(R);
+  const specs = left.concat(right);
+  const signs = left.map(() => 1).concat(right.map(() => -1));
+  const comps = specs.map(f => parseFormula(f));
+  const els = [];
+  comps.forEach(c => { for (const e of Object.keys(c)) if (!els.includes(e)) els.push(e); });
+  const m = els.length, n = specs.length;
+  if (n < 2) throw new Error('至少要有一种反应物和一种生成物');
+  const A = els.map(e => specs.map((_, j) => fr((comps[j][e] || 0) * signs[j], 1)));
+  let row = 0;
+  const pivots = [];
+  const used = Array(n).fill(false);
+  for (let col = 0; col < n && row < m; col++) {
+    let pr = row;
+    for (let i = row + 1; i < m; i++) if (Math.abs(A[i][col][0]) * A[pr][col][1] > Math.abs(A[pr][col][0]) * A[i][col][1]) pr = i;
+    if (!A[pr][col][0]) continue;
+    if (pr !== row) { const tmp = A[row]; A[row] = A[pr]; A[pr] = tmp; }
+    const dv = A[row][col];
+    for (let j = 0; j < n; j++) A[row][j] = fdiv(A[row][j], dv);
+    for (let i = 0; i < m; i++) if (i !== row && A[i][col][0]) {
+      const f = A[i][col];
+      for (let j = 0; j < n; j++) A[i][j] = fsub(A[i][j], fmul(f, A[row][j]));
+    }
+    used[col] = true; pivots.push(col); row++;
+  }
+  const free = [];
+  for (let j = 0; j < n; j++) if (!used[j]) free.push(j);
+  if (!free.length) throw new Error('各元素已经守恒，或这个式子无法按常规方法配平');
+  const basis = ft => {
+    const x = Array(n).fill(null).map(() => fr(0, 1));
+    x[free[ft]] = fr(1, 1);
+    pivots.forEach((pv, r) => {
+      let s = fr(0, 1);
+      for (const fj of free) s = fadd(s, fmul(A[r][fj], x[fj]));
+      x[pv] = fr(-s[0], s[1]);
+    });
+    return x;
+  };
+  const pack = vec => {
+    let den = 1;
+    vec.forEach(f => { den = den / gcd(den, f[1]) * f[1]; });
+    const c = vec.map(f => f[0] * (den / f[1]));
+    if (c.every(v => v <= 0)) c.forEach((_, i) => { c[i] = -c[i]; });
+    if (c.some(v => v <= 0) || c.some(v => v > 99)) return null;
+    const g = c.reduce((a, b) => gcd(a, b), 0) || 1;
+    return c.map(v => v / g);
+  };
+  let coeffs = null;
+  if (free.length === 1) coeffs = pack(basis(0));
+  else if (free.length === 2) {
+    outer: for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) {
+      const acc = Array(n).fill(null).map(() => fr(0, 1));
+      const xa = basis(0), xb = basis(1);
+      for (let j = 0; j < n; j++) acc[j] = fadd(fmul(xa[j], fr(a, 1)), fmul(xb[j], fr(b, 1)));
+      const c = pack(acc);
+      if (c) { coeffs = c; break outer; }
+    }
+  } else throw new Error('这个式子可配平的方式不唯一，请写成更常见的形式再试');
+  if (!coeffs) throw new Error('没有找到合适的整数系数，请检查化学式是否写对');
+  return { left, right, coeffs, els, comps };
+}
+function prettyEq(left, right, coeffs) {
+  const one = (f, k) => `${k === 1 ? '' : k} ${pretty(f)}`.replace(/^ /, '');
+  const side = (arr, off) => arr.map((f, i) => one(f, coeffs[off + i])).join(' + ');
+  return side(left, 0) + ' → ' + side(right, left.length);
+}
+function renderBal() {
+  const pre = ['Fe + O2 = Fe2O3', 'CH4 + O2 = CO2 + H2O', 'H2 + O2 = H2O', 'Ca(OH)2 + HCl = CaCl2 + H2O', 'C6H12O6 + O2 = CO2 + H2O', 'Al + Fe2O3 = Al2O3 + Fe', 'KMnO4 + HCl = KCl + MnCl2 + H2O + Cl2', 'Cu + HNO3 = Cu(NO3)2 + NO + H2O', 'NaOH + H2SO4 = Na2SO4 + H2O', 'CaCO3 + HCl = CaCl2 + CO2 + H2O'];
+  view.innerHTML = `<div class="calc"><h1>化学方程式配平</h1><p class="lead">输入未配平的方程式，用加号连接物质，用等号或箭头分开左右。支持括号，不写系数也可以。电荷与电子未纳入计算。</p>
+  <div class="fin"><input id="eq" placeholder="例如 Fe + O2 = Fe2O3" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(S.lastEq || 'Fe + O2 = Fe2O3')}"></div>
+  <div class="chips">${pre.map(p => `<button class="chip" data-eq="${esc(p)}">${esc(p).replace(/=/g, ' → ')}</button>`).join('')}</div>
+  <div id="eqout"></div>
+  <p class="note">配平采用整数系数的元素守恒，结果会约去公约数。复杂氧化还原若有多种配法，可能需要改写成更明确的式子。</p></div>`;
+  const inp = $('#eq');
+  const run = (store) => {
+    const v = inp.value.trim(); S.lastEq = v; save();
+    const out = $('#eqout'); if (!v) { out.innerHTML = ''; return; }
+    try {
+      const r = balanceEq(v);
+      const check = r.els.map(e => {
+        const L = r.left.reduce((s, f, i) => s + (r.comps[i][e] || 0) * r.coeffs[i], 0);
+        const R = r.right.reduce((s, f, i) => s + (r.comps[r.left.length + i][e] || 0) * r.coeffs[r.left.length + i], 0);
+        return `<tr><td>${e}</td><td class="mono">${L}</td><td class="mono">${R}</td></tr>`;
+      }).join('');
+      out.innerHTML = `<div class="res"><div class="big eqline">${prettyEq(r.left, r.right, r.coeffs)}</div>
+        <table><thead><tr><th>元素</th><th>反应物</th><th>生成物</th></tr></thead><tbody>${check}</tbody></table></div>`;
+      Motion.enter($('.res', out));
+    } catch (err) { out.innerHTML = `<div class="err">${esc(err.message)}</div>`; }
+  };
+  let deb; inp.oninput = () => { clearTimeout(deb); deb = setTimeout(() => run(false), 180); };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') run(true); });
+  $$('.chip[data-eq]').forEach(b => b.onclick = () => { inp.value = b.dataset.eq; run(true); });
+  run(false);
+}
+
 /* ---------- router ---------- */
 const route = () => (location.hash.replace(/^#\/?/, '') || 'table');
 function render() {
@@ -407,7 +522,7 @@ function render() {
   $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.r === r));
   clearInterval(clockT);
   if (r !== 'learn') L = null;
-  ({ table: renderTable, calc: renderCalc, learn: renderLearn, cmp: renderCmp }[r] || renderTable)();
+  ({ table: renderTable, calc: renderCalc, bal: renderBal, learn: renderLearn, cmp: renderCmp }[r] || renderTable)();
   Motion.enter(view);
   if (r === 'table') wave(); else Motion.stagger(view, '.lc, .chips .chip', 26, 18);
 }
